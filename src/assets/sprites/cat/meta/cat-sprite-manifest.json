@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "styleReference": "1e9d280c-518d-400e-ae67-b8e2c36eb352.png",
+  "baseSize": {
+    "width": 64,
+    "height": 64
+  },
+  "parts": {
+    "head": "src/assets/sprites/cat/parts/head.svg",
+    "body": "src/assets/sprites/cat/parts/body.svg",
+    "tail": "src/assets/sprites/cat/parts/tail.svg",
+    "leftPaw": "src/assets/sprites/cat/parts/left-paw.svg",
+    "rightPaw": "src/assets/sprites/cat/parts/right-paw.svg",
+    "faceOpen": "src/assets/sprites/cat/parts/face-open.svg",
+    "faceClosed": "src/assets/sprites/cat/parts/face-closed.svg",
+    "faceHappy": "src/assets/sprites/cat/parts/face-happy.svg"
+  },
+  "states": {
+    "idle": null,
+    "curious": null,
+    "sleep": "src/assets/sprites/cat/states/sleep.png",
+    "happy": "src/assets/sprites/cat/states/happy.png",
+    "angry": "src/assets/sprites/cat/states/angry.png",
+    "stretch": "src/assets/sprites/cat/states/stretch.png",
+    "bounce": "src/assets/sprites/cat/states/bounce.png"
+  }
+}

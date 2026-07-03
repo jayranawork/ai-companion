@@ -1,0 +1,227 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #f5f2eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  user-select: none;
+}
+
+.cat-scene {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.cat-scene__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.cat-scene__canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cat-panel-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.16), transparent 56%),
+    rgba(11, 14, 21, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f7efe0;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(12px);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+}
+
+.cat-panel-toggle:hover {
+  transform: translateY(-1px) scale(1.03);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), transparent 58%),
+    rgba(22, 27, 38, 0.9);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+}
+
+.cat-panel {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(430px, calc(100vh - 72px));
+  overflow: auto;
+  padding: 18px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(23, 28, 39, 0.96), rgba(9, 12, 18, 0.94));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(14px);
+  color: #f5f2eb;
+}
+
+.cat-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cat-panel h2 {
+  margin: 0 0 6px;
+  font-size: 1.02rem;
+}
+
+.cat-panel p {
+  margin: 0;
+  color: rgba(245, 242, 235, 0.78);
+  font-size: 0.84rem;
+}
+
+.cat-panel__close {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f2eb;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cat-panel__field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cat-panel__field span {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.cat-panel__hint {
+  margin: -2px 0 0;
+  color: rgba(245, 242, 235, 0.62);
+  font-size: 0.72rem;
+}
+
+.cat-panel__field input,
+.cat-panel__field select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  color: #f5f2eb;
+}
+
+.cat-panel__field input::placeholder {
+  color: rgba(245, 242, 235, 0.46);
+}
+
+.cat-panel__primary,
+.cat-panel__demo button,
+.cat-panel__actions button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f3c98b, #e8b868);
+  color: #1a1d21;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.cat-panel__demo {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.cat-panel__list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cat-panel__item {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cat-panel__item strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.cat-panel__item span {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 242, 235, 0.82);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.cat-panel__item p {
+  margin-bottom: 8px;
+}
+
+.cat-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cat-panel__empty {
+  margin: 0;
+}
+
+@media (max-width: 360px) {
+  .cat-panel {
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+}
