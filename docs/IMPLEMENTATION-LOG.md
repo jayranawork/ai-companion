@@ -91,17 +91,61 @@ What now works visually:
 
 This confirms the product direction is viable on the current machine.
 
+## Phase 1.1 Cleanup Completed
+
+The repository cleanup pass is now complete.
+
+What was cleaned up:
+
+- removed generated build output from the workspace
+- removed stale prototype and duplicate cat files
+- kept `src/cat` as the active runtime path
+- added a phase execution plan for the rest of Phase 1
+- added a future-suggestions file for non-core ideas
+
+This gives us a cleaner base for the next phase of runtime hardening.
+
+## Phase 1.2 Core Hardening In Progress
+
+The current implementation focus is now the feel of the cat itself.
+
+We are using this phase to improve:
+
+- idle motion
+- blink and breathing rhythm
+- drag and release polish
+- screen-edge clamping so the cat cannot slip off-screen
+- edge reaction feel
+- reminder presentation consistency
+
+The goal is for the cat to feel more alive without becoming noisy or unstable.
+
+## Phase 1.3 App Controls And Settings In Progress
+
+The current implementation focus is now the control surface around the cat.
+
+We are using this phase to add:
+
+- local settings storage
+- tray integration
+- in-app settings panel
+- show, hide, pause, and reset actions
+- focus mode controls
+- launch-at-startup controls
+- file logging
+
+The goal is for the app to feel like a real desktop product instead of only a hidden pet surface.
+
 ## Next Steps
 
 Immediate next steps:
 
-1. continue drag polish for fast movement, corners, and multi-monitor behavior
-2. improve matching sprite sets for idle, walk, run, sleep, happy, and stretch
-3. move reminder controls closer to a proper settings or tray experience
-4. keep adding safe motion layers without hurting drag stability
+1. verify the tray and in-app settings workflow in dev and packaged builds
+2. confirm focus mode and pause actually influence cat behavior
+3. keep the control surface lightweight and easy to discover
+4. start shaping the developer-awareness layer after the controls feel stable
 
 After that:
 
 1. formalize state transitions
-2. add settings and tray
-3. continue toward packaged `.exe` delivery
+2. continue toward packaged `.exe` delivery

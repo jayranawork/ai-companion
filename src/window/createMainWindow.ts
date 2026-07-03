@@ -4,14 +4,14 @@ import { APP_NAME, DEFAULT_WINDOW_SIZE } from "../shared/constants";
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(alwaysOnTop = true): BrowserWindow {
   const window = new BrowserWindow({
     title: APP_NAME,
     width: DEFAULT_WINDOW_SIZE.width,
     height: DEFAULT_WINDOW_SIZE.height,
     transparent: true,
     frame: false,
-    alwaysOnTop: true,
+    alwaysOnTop,
     resizable: false,
     maximizable: false,
     minimizable: false,
@@ -26,7 +26,7 @@ export function createMainWindow(): BrowserWindow {
   });
 
   window.setMenuBarVisibility(false);
-  window.setAlwaysOnTop(true, "screen-saver");
+  window.setAlwaysOnTop(alwaysOnTop, "screen-saver");
 
   if (isDev) {
     void window.loadURL(process.env.VITE_DEV_SERVER_URL!);

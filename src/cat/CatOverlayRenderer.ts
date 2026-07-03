@@ -90,7 +90,6 @@ export class CatOverlayRenderer {
         fontSize: 12,
         fontWeight: "800",
         letterSpacing: 0.4,
-        padding: 8,
         align: "left",
       }),
     });
@@ -106,7 +105,6 @@ export class CatOverlayRenderer {
         fontSize: 12,
         fontWeight: "700",
         lineHeight: 16,
-        padding: 8,
         align: "left",
         wordWrap: true,
         wordWrapWidth: 160,
@@ -184,57 +182,57 @@ export class CatOverlayRenderer {
       this.reminderBadgeText.text = content.badgeLabel;
       this.reminderTitle.text = content.title;
       this.reminderText.text = reminder.message || content.message;
-      const badgeWidth = 40;
-      const badgeHeight = 18;
-      const paddingX = 16;
-      const paddingTop = 14;
-      const paddingBottom = 16;
-      const titleGap = 8;
-      const width = 232;
+      const badgeWidth = 44;
+      const badgeHeight = 20;
+      const paddingX = 18;
+      const paddingTop = 15;
+      const paddingBottom = 18;
+      const width = 248;
       const innerWidth = width - paddingX * 2;
-      const titleWidth = innerWidth - badgeWidth - 10;
-      const contentTop = paddingTop + badgeHeight + 12;
+      const titleWidth = innerWidth - badgeWidth - 12;
+      const headerHeight = 24;
+      const contentTop = paddingTop + headerHeight + 10;
       this.reminderTitle.style.wordWrapWidth = titleWidth;
       this.reminderText.style.wordWrapWidth = innerWidth;
       const height = Math.max(
-        90,
-        contentTop + this.reminderTitle.height + titleGap + this.reminderText.height + paddingBottom,
+        94,
+        contentTop + this.reminderText.height + paddingBottom,
       );
-      const bubbleY = -124 + Math.sin(elapsed * 2.4) * 2;
+      const bubbleY = -124 + Math.sin(elapsed * 1.6) * 1.4;
       const bubbleTop = bubbleY - height / 2;
       this.reminderBubble
         .clear()
-        .roundRect(-width / 2, -height / 2, width, height, 18)
+        .roundRect(-width / 2, -height / 2, width, height, 19)
         .fill({ color: 0xf8f6ef, alpha: 0.97 })
-        .stroke({ color: content.strokeColor, width: 2 })
+        .stroke({ color: content.strokeColor, width: 1.8 })
         .moveTo(-12, height / 2 - 2)
         .lineTo(0, height / 2 + 14)
         .lineTo(12, height / 2 - 2)
         .closePath()
         .fill({ color: 0xf8f6ef, alpha: 0.97 })
-        .stroke({ color: content.strokeColor, width: 2 });
+        .stroke({ color: content.strokeColor, width: 1.8 });
 
       this.reminderBubble.position.set(0, bubbleY);
       this.reminderBadge
         .clear()
-        .roundRect(0, 0, badgeWidth, badgeHeight, 9)
+        .roundRect(0, 0, badgeWidth, badgeHeight, 10)
         .fill({ color: content.accentColor, alpha: 1 })
         .stroke({ color: content.strokeColor, width: 1.5 });
       this.reminderBadge.position.set(
         -width / 2 + paddingX,
-        bubbleTop + paddingTop,
+        bubbleTop + paddingTop + 1,
       );
       this.reminderBadgeText.position.set(
         -width / 2 + paddingX + badgeWidth / 2,
-        bubbleTop + paddingTop + badgeHeight / 2 + 0.5,
+        bubbleTop + paddingTop + badgeHeight / 2 + 1,
       );
       this.reminderTitle.position.set(
         -width / 2 + paddingX + badgeWidth + 10,
-        bubbleTop + paddingTop + 4,
+        bubbleTop + paddingTop + 2,
       );
       this.reminderText.position.set(
         -width / 2 + paddingX,
-        bubbleTop + contentTop + this.reminderTitle.height + titleGap + 2,
+        bubbleTop + contentTop,
       );
       this.reminderTitle.style.fill = content.accentColor;
       this.reminderText.style.fill = content.strokeColor;

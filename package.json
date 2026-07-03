@@ -6,7 +6,7 @@
   "main": "dist-electron/main/main.js",
   "author": "Jay Rana",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
+    "dev": "node scripts/dev.mjs",
     "dev:renderer": "vite",
     "dev:main": "tsc -p tsconfig.node.json --watch --preserveWatchOutput",
     "dev:electron": "wait-on tcp:5173 .\\dist-electron\\main\\main.js && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
@@ -53,6 +53,7 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
+      "public/**/*",
       "package.json"
     ],
     "directories": {

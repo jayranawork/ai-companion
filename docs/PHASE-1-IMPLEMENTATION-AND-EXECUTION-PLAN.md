@@ -6,6 +6,12 @@ This document defines the next implementation phase for Desktop Dev Cat after th
 
 The immediate goal is to turn the current app into a cleaner, more reliable base for product work, then build the desktop pet and developer-assistant features in a controlled order.
 
+Current focus:
+
+- Phase 1.1 repo cleanup is complete
+- Phase 1.2 core hardening is now the active implementation pass
+- Phase 1.3 app controls and settings is the next section to complete
+
 ## Current Baseline
 
 Already working:
@@ -78,6 +84,7 @@ Work:
 
 - add settings storage
 - add tray integration
+- add in-app settings panel
 - add show, hide, pause, and reset actions
 - add focus mode controls
 - add startup behavior controls
@@ -87,6 +94,8 @@ Done when:
 
 - the user can control the app without relying on hidden gestures
 - key preferences persist between launches
+- tray controls are available for show, hide, pause, reset, and startup toggles
+- an in-app settings panel is available for the same core controls
 
 ## Phase 1.4: Developer Awareness Layer
 

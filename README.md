@@ -25,6 +25,10 @@ What already works:
 - reminder popup smoke poof when a nudge appears
 - softer idle breathing and release-settle motion polish
 - hidden reminder launcher unlocked by tapping the cat 8 times quickly
+- in-app settings panel for tray-style controls
+- tray controls for show, hide, pause, reset, focus mode, startup, and logs
+- persistent app settings via Electron Store
+- file logging in the Electron main process
 - build and lint validation passing
 
 What comes next:
@@ -32,7 +36,7 @@ What comes next:
 - refine the imported cat asset style or swap to a closer Comnyang-like pack later
 - improve motion quality without hurting drag stability
 - continue polishing the hidden reminder mini-panel
-- tray and settings
+- polish the tray-backed settings workflow
 - packaging to Windows `.exe`
 
 ## Stack
@@ -91,6 +95,8 @@ Run the app in development:
 npm run dev
 ```
 
+This starts the Vite renderer, watches the Electron TypeScript output, and relaunches Electron automatically when the compiled main-process files change.
+
 Build the app:
 
 ```bash
@@ -129,6 +135,8 @@ Planning and project notes:
 - [docs/SPRITE-DIRECTION.md](./docs/SPRITE-DIRECTION.md)
 - [docs/CAT-ASSET-PLAN.md](./docs/CAT-ASSET-PLAN.md)
 - [docs/CRAFTPIX-ASSET-REVIEW.md](./docs/CRAFTPIX-ASSET-REVIEW.md)
+- [docs/deployment-phase/README.md](./docs/deployment-phase/README.md)
+- [docs/deployment-phase/CONTROL-PANEL.md](./docs/deployment-phase/CONTROL-PANEL.md)
 - [src/assets/sprites/cat/meta/cat-sprite-manifest.json](./src/assets/sprites/cat/meta/cat-sprite-manifest.json)
 
 ## Product Direction
