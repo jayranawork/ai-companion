@@ -2,7 +2,6 @@ import { Menu, Tray, nativeImage } from "electron";
 import type { AppSettings } from "../shared/appSettings";
 
 export type TrayActions = {
-  openLogs: () => void;
   quit: () => void;
   resetPosition: () => void;
   setAlwaysOnTop: (value: boolean) => void;
@@ -54,11 +53,6 @@ export function createAppTray(iconPath: string, actions: TrayActions) {
         label: "Launch at Startup",
         checked: state.launchAtStartup,
         click: () => actions.setLaunchAtStartup(!state.launchAtStartup),
-      },
-      { type: "separator" },
-      {
-        label: "Open Logs",
-        click: actions.openLogs,
       },
       {
         label: "Quit",

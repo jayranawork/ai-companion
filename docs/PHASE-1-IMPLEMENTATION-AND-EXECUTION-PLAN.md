@@ -88,7 +88,6 @@ Work:
 - add show, hide, pause, and reset actions
 - add focus mode controls
 - add startup behavior controls
-- add logging to file
 
 Done when:
 

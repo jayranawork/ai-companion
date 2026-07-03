@@ -3,7 +3,7 @@ import type { CatState } from "./CatTypes";
 
 const allowedTransitions: Record<CatState, CatState[]> = {
   angry: ["idle"],
-  curious: ["idle", "dragging", "happy", "angry"],
+  curious: ["idle", "dragging", "happy", "angry", "sleeping"],
   dragging: ["stretching", "idle"],
   happy: ["idle"],
   idle: ["curious", "dragging", "sleeping", "happy", "angry"],

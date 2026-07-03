@@ -9,7 +9,6 @@ declare global {
       getAppSettings: () => Promise<AppSettings>;
       hideWindow: () => Promise<void>;
       onAppSettingsChanged: (callback: (settings: AppSettings) => void) => () => void;
-      openLogs: () => Promise<void>;
       resetWindowPosition: () => Promise<void>;
       startWindowDrag: (screenX: number, screenY: number) => void;
       moveWindowDrag: (screenX: number, screenY: number) => void;

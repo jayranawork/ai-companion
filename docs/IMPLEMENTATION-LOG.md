@@ -132,7 +132,6 @@ We are using this phase to add:
 - show, hide, pause, and reset actions
 - focus mode controls
 - launch-at-startup controls
-- file logging
 
 The goal is for the app to feel like a real desktop product instead of only a hidden pet surface.
 

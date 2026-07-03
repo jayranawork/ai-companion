@@ -299,10 +299,14 @@ export function CatRenderer() {
       let squash = 0;
       let squashTarget = 0;
       let wobble = 0;
-      let idleTime = 0;
+      let sleepDeadline = 30;
       let edgeBurstCooldown = 0;
       const grabScreenPoint = new Point(0, 0);
       const pullVector = new Point(0, 0);
+
+      const nudgeSleepTimer = () => {
+        sleepDeadline = elapsed + 30;
+      };
 
       const triggerEdgeBurst = (x: number, y: number) => {
         edgeBurstCooldown = 0.35;
@@ -367,7 +371,7 @@ export function CatRenderer() {
 
       const handlePointerMove = (event: FederatedPointerEvent) => {
         pointer.copyFrom(event.global);
-        idleTime = 0;
+        nudgeSleepTimer();
 
         if (!dragging) {
           const dx = event.global.x - catRoot.x;
@@ -411,6 +415,7 @@ export function CatRenderer() {
         wobble = pullVector.x > 0 ? 0.14 : -0.14;
         motionController.registerDragRelease(pullVector.x, pullVector.y);
         pullVector.set(0, 0);
+        nudgeSleepTimer();
         window.desktopDevCat.endWindowDrag();
         applyState("idle");
         catEvents.emit("CAT_DRAG_END", undefined);
@@ -423,6 +428,7 @@ export function CatRenderer() {
         stretchTarget = 0.05;
         squashTarget = 0.04;
         pullVector.set(0, 0);
+        nudgeSleepTimer();
         window.desktopDevCat.startWindowDrag(event.screen.x, event.screen.y);
         applyState("dragging");
         catEvents.emit("CAT_DRAG_START", undefined);
@@ -442,11 +448,13 @@ export function CatRenderer() {
 
         if (tapCountRef.current === 3) {
           manualMood = { state: "happy", until: elapsed + 5 };
+          nudgeSleepTimer();
         }
 
         if (tapCountRef.current >= 8) {
           tapCountRef.current = 0;
           manualMood = { state: "happy", until: elapsed + 5 };
+          nudgeSleepTimer();
           const preferredSide = launcherSideRef.current;
           setPreferredLauncherSide(preferredSide);
           setLauncherVisible(true);
@@ -464,7 +472,6 @@ export function CatRenderer() {
       pixiApp.ticker.add((ticker) => {
         const deltaSeconds = ticker.deltaMS / 1000;
         elapsed += deltaSeconds;
-        idleTime += deltaSeconds;
         const runtimeSettings = appSettingsRef.current;
         const paused = runtimeSettings?.paused ?? false;
         const focusMode = runtimeSettings?.focusMode ?? false;
@@ -482,7 +489,7 @@ export function CatRenderer() {
 
         edgeBurstCooldown = Math.max(0, edgeBurstCooldown - deltaSeconds);
 
-        if (!paused && !dragging && idleTime > 30 && !manualMood) {
+        if (!paused && !dragging && elapsed >= sleepDeadline && !manualMood) {
           applyState("sleeping");
         }
 
@@ -503,7 +510,7 @@ export function CatRenderer() {
 
         const motion = motionController.update({
           activeState,
-          centerX,
+          centerX: catRoot.x,
           dragging,
           elapsed,
           deltaSeconds,
@@ -842,21 +849,6 @@ export function CatRenderer() {
                   />
                   <span>Launch at startup</span>
                 </label>
-              </section>
-
-              <section className="cat-controls__group">
-                <h3>Diagnostics</h3>
-                <div className="cat-controls__row">
-                  <button type="button" onClick={() => void window.desktopDevCat.openLogs()}>
-                    Open Logs
-                  </button>
-                  <button type="button" onClick={() => void window.desktopDevCat.setAppSettings({ paused: false })}>
-                    Unpause
-                  </button>
-                </div>
-                <p className="cat-panel__hint">
-                  {appSettings ? "Settings are saved locally on this machine." : "Loading settings..."}
-                </p>
               </section>
             </div>
           ) : null}

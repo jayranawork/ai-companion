@@ -43,6 +43,7 @@ export class CatMotionController {
   private edgeIntensity = 0;
   private lookX = 0;
   private lookY = 0;
+  private followOffsetX = 0;
   private blinkCooldown = 2.8 + Math.random() * 1.8;
   private blinkTimer = 0;
   private blinkHold = 0;
@@ -71,12 +72,16 @@ export class CatMotionController {
 
   update(input: CatMotionInput): CatMotionOutput {
     const orientation = input.facing >= 0 ? 1 : -1;
-    const lookTargetX = clamp((input.pointerX - input.centerX) * 0.03, -8, 8);
+    const pointerDeltaX = input.pointerX - input.centerX;
+    const lookTargetX = clamp(pointerDeltaX * 0.03, -8, 8);
     const lookTargetY = Math.sin(input.elapsed * 0.8 + this.seed) * 0.35;
     const lookBlend = input.dragging ? 0.2 : 0.08;
+    const followTargetX =
+      input.activeState === "sleeping" ? 0 : clamp(pointerDeltaX * 0.012, -5.5, 5.5);
 
     this.lookX += (lookTargetX - this.lookX) * lookBlend;
     this.lookY += (lookTargetY - this.lookY) * 0.06;
+    this.followOffsetX += (followTargetX - this.followOffsetX) * (input.dragging ? 0.14 : 0.06);
 
     if (input.dragging || input.activeState === "sleeping") {
       this.blinkPhase = 0;
@@ -180,7 +185,7 @@ export class CatMotionController {
       lookX: this.lookX,
       lookY: this.lookY,
       blink: this.blinkEase,
-      rootX: this.idleOffsetX + this.releaseOffsetX + this.edgeOffsetX,
+      rootX: this.idleOffsetX + this.releaseOffsetX + this.edgeOffsetX + this.followOffsetX,
       rootY: this.idleOffsetY + this.releaseOffsetY + bob * 0.2 + this.edgeOffsetY,
       rotation,
     };

@@ -1,7 +1,6 @@
-import { app, BrowserWindow, ipcMain, screen, shell } from "electron";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
 import { createAppSettingsStore, readAppSettings, writeAppSettings } from "./appSettings";
-import { createAppLogger } from "./logger";
 import { createAppTray } from "./appTray";
 import { createMainWindow } from "../window/createMainWindow";
 import { defaultAppSettings, type AppSettings } from "../shared/appSettings";
@@ -11,8 +10,6 @@ let restoreWindow: BrowserWindow | null = null;
 let appSettingsStore: ReturnType<typeof createAppSettingsStore> | null = null;
 let appSettings: AppSettings = defaultAppSettings;
 let trayController: ReturnType<typeof createAppTray> | null = null;
-let logFilePath = "";
-let logger = null as ReturnType<typeof createAppLogger>["logger"] | null;
 let quitting = false;
 const dragAnchors = new Map<
   number,
@@ -129,10 +126,6 @@ function syncSettingsPatch(patch: Partial<AppSettings>) {
 
   appSettings = writeAppSettings(appSettingsStore, patch);
 
-  if (logger) {
-    logger.info({ patch, appSettings }, "App settings updated");
-  }
-
   if (process.platform === "win32") {
     app.setLoginItemSettings({
       openAtLogin: appSettings.launchAtStartup,
@@ -193,17 +186,6 @@ function resetWindowPosition() {
 
   mainWindow.center();
   showWindow();
-  if (logger) {
-    logger.info("Window position reset");
-  }
-}
-
-function openLogs() {
-  if (!logFilePath) {
-    return;
-  }
-
-  void shell.openPath(path.dirname(logFilePath));
 }
 
 function getRestoreWindowBounds() {
@@ -379,15 +361,11 @@ function registerControlIpc() {
   ipcMain.handle("app-window:reset", () => {
     resetWindowPosition();
   });
-  ipcMain.handle("app-logs:open", () => {
-    openLogs();
-  });
 }
 
 function createTray() {
   const trayIconPath = path.join(app.getAppPath(), "public", "tray-icon.svg");
   trayController = createAppTray(trayIconPath, {
-    openLogs,
     quit: () => {
       quitting = true;
       app.quit();
@@ -421,12 +399,6 @@ async function bootstrap(): Promise<void> {
 
   appSettingsStore = createAppSettingsStore();
   appSettings = readAppSettings(appSettingsStore);
-  const loggerBundle = createAppLogger();
-  logger = loggerBundle.logger;
-  logFilePath = loggerBundle.logFilePath;
-
-  logger.info({ logFilePath }, "Logger initialized");
-  logger.info({ appSettings }, "Loading persisted app settings");
 
   if (process.platform === "win32") {
     app.setLoginItemSettings({

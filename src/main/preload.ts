@@ -16,7 +16,6 @@ contextBridge.exposeInMainWorld("desktopDevCat", {
       ipcRenderer.removeListener(channel, listener);
     };
   },
-  openLogs: () => ipcRenderer.invoke("app-logs:open"),
   resetWindowPosition: () => ipcRenderer.invoke("app-window:reset"),
   startWindowDrag: (screenX: number, screenY: number) => {
     ipcRenderer.send("window-drag:start", { screenX, screenY });
