@@ -48,6 +48,41 @@ export const reminderKindOptions: Array<{
     label: "Git check-in",
     description: "Capture the good work before it drifts away.",
   },
+  {
+    value: "lint",
+    label: "Lint nudge",
+    description: "The code wants one more tidy pass.",
+  },
+  {
+    value: "refactor",
+    label: "Refactor ping",
+    description: "A tiny nudge to shape the messy bit into something nicer.",
+  },
+  {
+    value: "test",
+    label: "Test tap",
+    description: "A friendly poke to run the tests before the moment passes.",
+  },
+  {
+    value: "push",
+    label: "Push reminder",
+    description: "A tiny voice that says the branch deserves to leave home.",
+  },
+  {
+    value: "logs",
+    label: "Log glance",
+    description: "Look back at the logs before they vanish into the void.",
+  },
+  {
+    value: "break",
+    label: "Micro break",
+    description: "A small reset so your brain can keep being useful.",
+  },
+  {
+    value: "panic",
+    label: "Panic pause",
+    description: "Breathe first. The bug is rarely as dramatic as it sounds.",
+  },
 ];
 
 const reminderContentMap: Record<ReminderKind, ReminderContent> = {
@@ -99,6 +134,55 @@ const reminderContentMap: Record<ReminderKind, ReminderContent> = {
     badgeLabel: "GIT",
     accentColor: 0xa7d8a5,
     strokeColor: 0x2f6b38,
+  },
+  lint: {
+    title: "Lint nudge",
+    message: "Tiny cleanup time. The linter has opinions and, annoyingly, it is sometimes right.",
+    badgeLabel: "LNT",
+    accentColor: 0xc9d6ff,
+    strokeColor: 0x334a8d,
+  },
+  refactor: {
+    title: "Refactor ping",
+    message: "This is the part where you make future-you feel a little less trapped.",
+    badgeLabel: "RFX",
+    accentColor: 0xd7b2e6,
+    strokeColor: 0x5d3270,
+  },
+  test: {
+    title: "Test tap",
+    message: "Run the tests once. Then you get to argue with reality using evidence.",
+    badgeLabel: "TST",
+    accentColor: 0xb9e3c5,
+    strokeColor: 0x2e6a43,
+  },
+  push: {
+    title: "Push reminder",
+    message: "Your branch has done enough hiding. Time to send it out into the world.",
+    badgeLabel: "PUSH",
+    accentColor: 0xf0c38e,
+    strokeColor: 0x86551f,
+  },
+  logs: {
+    title: "Log glance",
+    message: "The logs are still talking. Catch the useful line before it disappears.",
+    badgeLabel: "LOG",
+    accentColor: 0xa8d8f0,
+    strokeColor: 0x225d7b,
+  },
+  break: {
+    title: "Micro break",
+    message: "Stand up, loosen your hands, and let your head reset for a minute.",
+    badgeLabel: "BRK",
+    accentColor: 0xead1a1,
+    strokeColor: 0x6b4d14,
+  },
+  panic: {
+    title: "Panic pause",
+    message: "Breathe once. Then read the error like it is trying very hard to be helpful.",
+    badgeLabel: "PAN",
+    accentColor: 0xf1a7a7,
+    strokeColor: 0x7b2f2f,
   },
 };
 

@@ -2,6 +2,13 @@ import { Container, Graphics, Text, TextStyle } from "pixi.js";
 import { getReminderContent } from "./CatReminderContent";
 import type { CatReminder, CatState } from "./CatTypes";
 
+type OverlayLayout = {
+  rootX: number;
+  rootY: number;
+  screenHeight: number;
+  screenWidth: number;
+};
+
 export class CatOverlayRenderer {
   readonly container = new Container();
   private happyEmoji: Text;
@@ -121,6 +128,7 @@ export class CatOverlayRenderer {
     facing: number,
     intensity: number,
     reminder: CatReminder | null,
+    layout: OverlayLayout,
   ) {
     const sleepActive = state === "sleeping";
     const happyActive = state === "happy";
@@ -182,37 +190,86 @@ export class CatOverlayRenderer {
       this.reminderBadgeText.text = content.badgeLabel;
       this.reminderTitle.text = content.title;
       this.reminderText.text = reminder.message || content.message;
-      const badgeWidth = 44;
+      const badgeWidth = 46;
       const badgeHeight = 20;
-      const paddingX = 18;
-      const paddingTop = 15;
-      const paddingBottom = 18;
-      const width = 248;
+      const paddingX = 16;
+      const paddingTop = 14;
+      const paddingBottom = 16;
+      const width = Math.max(236, Math.min(280, layout.screenWidth - 24));
       const innerWidth = width - paddingX * 2;
       const titleWidth = innerWidth - badgeWidth - 12;
       const headerHeight = 24;
       const contentTop = paddingTop + headerHeight + 10;
+      this.reminderTitle.style.wordWrap = true;
       this.reminderTitle.style.wordWrapWidth = titleWidth;
+      this.reminderText.style.wordWrap = true;
       this.reminderText.style.wordWrapWidth = innerWidth;
+      this.reminderText.style.breakWords = true;
+      this.reminderTitle.style.breakWords = true;
       const height = Math.max(
         94,
         contentTop + this.reminderText.height + paddingBottom,
       );
-      const bubbleY = -124 + Math.sin(elapsed * 1.6) * 1.4;
+      const roomAbove = layout.rootY - 150;
+      const roomBelow = layout.screenHeight - layout.rootY - 150;
+      const preferBelow = roomAbove < height + 18 && roomBelow > roomAbove;
+      const preferSide = roomAbove < height + 18 && roomBelow < height + 18;
+      let bubbleX = 0;
+      let bubbleY = -124 + Math.sin(elapsed * 1.6) * 1.4;
+      let tailMode: "top" | "bottom" | "left" | "right" = "bottom";
+
+      if (preferBelow) {
+        bubbleY = 112 + Math.sin(elapsed * 1.6) * 1.4;
+        tailMode = "top";
+      } else if (preferSide) {
+        const goRight = layout.rootX < layout.screenWidth / 2;
+        bubbleX = goRight ? 124 : -124;
+        bubbleY = -14 + Math.sin(elapsed * 1.6) * 1.2;
+        tailMode = goRight ? "left" : "right";
+      }
       const bubbleTop = bubbleY - height / 2;
+
       this.reminderBubble
         .clear()
         .roundRect(-width / 2, -height / 2, width, height, 19)
         .fill({ color: 0xf8f6ef, alpha: 0.97 })
-        .stroke({ color: content.strokeColor, width: 1.8 })
-        .moveTo(-12, height / 2 - 2)
-        .lineTo(0, height / 2 + 14)
-        .lineTo(12, height / 2 - 2)
-        .closePath()
-        .fill({ color: 0xf8f6ef, alpha: 0.97 })
         .stroke({ color: content.strokeColor, width: 1.8 });
 
-      this.reminderBubble.position.set(0, bubbleY);
+      if (tailMode === "bottom") {
+        this.reminderBubble
+          .moveTo(-12, height / 2 - 2)
+          .lineTo(0, height / 2 + 14)
+          .lineTo(12, height / 2 - 2)
+          .closePath()
+          .fill({ color: 0xf8f6ef, alpha: 0.97 })
+          .stroke({ color: content.strokeColor, width: 1.8 });
+      } else if (tailMode === "top") {
+        this.reminderBubble
+          .moveTo(-12, -height / 2 + 2)
+          .lineTo(0, -height / 2 - 14)
+          .lineTo(12, -height / 2 + 2)
+          .closePath()
+          .fill({ color: 0xf8f6ef, alpha: 0.97 })
+          .stroke({ color: content.strokeColor, width: 1.8 });
+      } else if (tailMode === "left") {
+        this.reminderBubble
+          .moveTo(-width / 2 + 2, -10)
+          .lineTo(-width / 2 - 14, 0)
+          .lineTo(-width / 2 + 2, 10)
+          .closePath()
+          .fill({ color: 0xf8f6ef, alpha: 0.97 })
+          .stroke({ color: content.strokeColor, width: 1.8 });
+      } else {
+        this.reminderBubble
+          .moveTo(width / 2 - 2, -10)
+          .lineTo(width / 2 + 14, 0)
+          .lineTo(width / 2 - 2, 10)
+          .closePath()
+          .fill({ color: 0xf8f6ef, alpha: 0.97 })
+          .stroke({ color: content.strokeColor, width: 1.8 });
+      }
+
+      this.reminderBubble.position.set(bubbleX, bubbleY);
       this.reminderBadge
         .clear()
         .roundRect(0, 0, badgeWidth, badgeHeight, 10)

@@ -241,16 +241,6 @@ export function CatRenderer() {
   }, []);
 
   useEffect(() => {
-    const removeListener = window.desktopDevCat.onWindowRoamStateChanged((roaming) => {
-      setRoamMode(roaming);
-    });
-
-    return () => {
-      removeListener();
-    };
-  }, []);
-
-  useEffect(() => {
     let active = true;
 
     void window.desktopDevCat.getDevSignal().then((signal) => {
@@ -439,6 +429,13 @@ export function CatRenderer() {
         sleepDeadline = elapsed + 30;
       };
 
+      const wakeCat = () => {
+        nudgeSleepTimer();
+        if (activeState === "sleeping") {
+          applyState("idle");
+        }
+      };
+
       const triggerEdgeBurst = (x: number, y: number) => {
         edgeBurstCooldown = 0.35;
         edgeBurst.visible = true;
@@ -463,6 +460,10 @@ export function CatRenderer() {
       removeRoamStateListener = window.desktopDevCat.onWindowRoamStateChanged((roaming) => {
         roamModeRef.current = roaming;
         setRoamMode(roaming);
+
+        if (!roaming) {
+          nudgeSleepTimer();
+        }
 
         if (!roaming && !dragging && activeState === "walking") {
           applyState("idle");
@@ -509,7 +510,7 @@ export function CatRenderer() {
 
       const handlePointerMove = (event: FederatedPointerEvent) => {
         pointer.copyFrom(event.global);
-        nudgeSleepTimer();
+        wakeCat();
 
         if (roamModeRef.current && !dragging) {
           return;
@@ -628,6 +629,7 @@ export function CatRenderer() {
         if (manualMood && elapsed >= manualMood.until) {
           manualMood = null;
           if (!dragging) {
+            nudgeSleepTimer();
             applyState("idle");
           }
         }
@@ -648,6 +650,9 @@ export function CatRenderer() {
           }
         } else if (!roaming && !dragging && !manualMood) {
           if (activeState === "walking") {
+            applyState("idle");
+          }
+          if (activeState === "sleeping" && elapsed >= sleepDeadline - 0.5) {
             applyState("idle");
           }
         }
@@ -702,6 +707,10 @@ export function CatRenderer() {
           x: centerX + motion.rootX,
           centerX,
         };
+        const cursorDeltaX = pointer.x - catRoot.x;
+        const cursorFacing = cursorDeltaX >= 0 ? 1 : -1;
+        const cursorNearCat = Math.abs(cursorDeltaX) <= 420;
+        const roamFacing = roamFacingRef.current >= 0 ? 1 : -1;
         const targetFacing = dragging
           ? pullVector.x < -8
             ? -1
@@ -709,7 +718,9 @@ export function CatRenderer() {
               ? 1
               : activeFacing
           : roaming && !dragging
-            ? roamFacingRef.current
+            ? roamFacing
+            : cursorNearCat && !manualMood
+            ? cursorFacing
           : motion.lookX < -2
             ? -1
             : motion.lookX > 2
@@ -740,6 +751,12 @@ export function CatRenderer() {
           activeFacing,
           stretch,
           activeReminder,
+          {
+            rootX: catRoot.x,
+            rootY: catRoot.y,
+            screenWidth: pixiApp.screen.width,
+            screenHeight: pixiApp.screen.height,
+          },
         );
       });
     }

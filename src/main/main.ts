@@ -111,7 +111,7 @@ function getClampedWindowPosition(window: BrowserWindow, nextX: number, nextY: n
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
   const edgeMargin = 28;
-  const topVisibleMargin = 40;
+  const topVisibleMargin = 56;
   const halfWidth = bounds.width / 2;
   const halfHeight = bounds.height / 2;
 
@@ -410,51 +410,58 @@ function startWindowRoam() {
   sendRoamDirectionChanged();
 
   roamTimer = setInterval(() => {
-    const window = mainWindow;
+    try {
+      const window = mainWindow;
 
-    if (!window || window.isDestroyed()) {
+      if (!window || window.isDestroyed()) {
+        stopWindowRoam();
+        return;
+      }
+
+      if (!window.isVisible()) {
+        return;
+      }
+
+      const bounds = window.getBounds();
+      const display = screen.getDisplayMatching(bounds);
+      const workArea = display.workArea;
+      const speed = 3.2;
+      const edgeMargin = 6;
+      const topVisibleMargin = 22;
+      const halfWidth = bounds.width / 2;
+      const halfHeight = bounds.height / 2;
+      const minX = workArea.x - (halfWidth - edgeMargin);
+      const maxX = workArea.x + workArea.width - (halfWidth + edgeMargin);
+      const minY = workArea.y + topVisibleMargin;
+      const maxY = workArea.y + workArea.height - (halfHeight + edgeMargin);
+      const [currentX, currentY] = window.getPosition();
+      const safeCurrentX = Number.isFinite(currentX) ? currentX : workArea.x;
+      const safeCurrentY = Number.isFinite(currentY) ? currentY : workArea.y;
+      const nextX = safeCurrentX + roamDirection * speed;
+      const nextY = clamp(safeCurrentY, minY, maxY);
+
+      if (nextX <= minX || nextX >= maxX) {
+        roamDirection *= -1;
+        sendRoamDirectionChanged();
+        window.webContents.send("window-drag:edge", {
+          left: nextX <= minX,
+          right: nextX >= maxX,
+          top: false,
+          bottom: false,
+        });
+      }
+
+      const targetX = Math.trunc(
+        clamp(Number.isFinite(nextX) ? nextX : safeCurrentX, minX, maxX),
+      );
+      const targetY = Math.trunc(Number.isFinite(nextY) ? nextY : safeCurrentY);
+
+      if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
+        window.setPosition(targetX, targetY);
+      }
+    } catch (error) {
+      console.error("[roam] roaming tick failed", error);
       stopWindowRoam();
-      return;
-    }
-
-    if (!window.isVisible()) {
-      return;
-    }
-
-    const bounds = window.getBounds();
-    const display = screen.getDisplayMatching(bounds);
-    const workArea = display.workArea;
-    const speed = 3.2;
-    const edgeMargin = 4;
-    const topVisibleMargin = 12;
-    const halfWidth = bounds.width / 2;
-    const halfHeight = bounds.height / 2;
-    const minX = workArea.x - (halfWidth - edgeMargin);
-    const maxX = workArea.x + workArea.width - (halfWidth + edgeMargin);
-    const minY = workArea.y + topVisibleMargin;
-    const maxY = workArea.y + workArea.height - (halfHeight + edgeMargin);
-    const [currentX, currentY] = window.getPosition();
-    const safeCurrentX = Number.isFinite(currentX) ? currentX : workArea.x;
-    const safeCurrentY = Number.isFinite(currentY) ? currentY : workArea.y;
-    const nextX = safeCurrentX + roamDirection * speed;
-    const nextY = clamp(safeCurrentY, minY, maxY);
-
-    if (nextX <= minX || nextX >= maxX) {
-      roamDirection *= -1;
-      sendRoamDirectionChanged();
-      window.webContents.send("window-drag:edge", {
-        left: nextX <= minX,
-        right: nextX >= maxX,
-        top: false,
-        bottom: false,
-      });
-    }
-
-    const targetX = Math.round(clamp(Number.isFinite(nextX) ? nextX : safeCurrentX, minX, maxX));
-    const targetY = Math.round(Number.isFinite(nextY) ? nextY : safeCurrentY);
-
-    if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
-      window.setPosition(targetX, targetY);
     }
   }, 16);
 }

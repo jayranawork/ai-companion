@@ -42,7 +42,14 @@ export type ReminderKind =
   | "water"
   | "debug"
   | "build"
-  | "git";
+  | "git"
+  | "lint"
+  | "refactor"
+  | "test"
+  | "push"
+  | "logs"
+  | "break"
+  | "panic";
 
 export type CatReminder = {
   kind: ReminderKind;

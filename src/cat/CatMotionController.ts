@@ -76,18 +76,20 @@ export class CatMotionController {
   update(input: CatMotionInput): CatMotionOutput {
     const orientation = input.facing >= 0 ? 1 : -1;
     const pointerDeltaX = input.pointerX - input.centerX;
-    const lookTargetX = clamp(pointerDeltaX * 0.03, -8, 8);
+    const pointerBias = clamp(pointerDeltaX / 260, -1, 1);
+    const farSideBias = Math.abs(pointerDeltaX) > 160 ? Math.sign(pointerDeltaX) * 1.15 : 0;
+    const lookTargetX = clamp(pointerDeltaX * 0.037, -10, 10);
     const lookTargetY = Math.sin(input.elapsed * 0.8 + this.seed) * 0.35;
     const lookBlend = input.dragging ? 0.2 : 0.08;
     const followTargetX =
       input.activeState === "sleeping" || input.activeState === "walking"
         ? 0
-        : clamp(pointerDeltaX * 0.012, -5.5, 5.5);
+        : clamp(pointerDeltaX * 0.017 + pointerBias * 1.1 + farSideBias, -7.4, 7.4);
     const walkTargetX = input.walking ? clamp(input.walkTargetX, -8_000, 8_000) : 0;
 
     this.lookX += (lookTargetX - this.lookX) * lookBlend;
     this.lookY += (lookTargetY - this.lookY) * 0.06;
-    this.followOffsetX += (followTargetX - this.followOffsetX) * (input.dragging ? 0.14 : 0.06);
+    this.followOffsetX += (followTargetX - this.followOffsetX) * (input.dragging ? 0.14 : 0.08);
     this.walkOffsetX += (walkTargetX - this.walkOffsetX) * (input.walking ? 0.09 : 0.05);
 
     if (input.dragging || input.activeState === "sleeping") {
