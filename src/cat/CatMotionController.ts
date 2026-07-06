@@ -11,6 +11,8 @@ export type CatMotionInput = {
   elapsed: number;
   deltaSeconds: number;
   facing: number;
+  walking: boolean;
+  walkTargetX: number;
   pointerX: number;
   pullX: number;
   pullY: number;
@@ -41,6 +43,7 @@ export class CatMotionController {
   private edgeVelocityX = 0;
   private edgeVelocityY = 0;
   private edgeIntensity = 0;
+  private walkOffsetX = 0;
   private lookX = 0;
   private lookY = 0;
   private followOffsetX = 0;
@@ -77,11 +80,15 @@ export class CatMotionController {
     const lookTargetY = Math.sin(input.elapsed * 0.8 + this.seed) * 0.35;
     const lookBlend = input.dragging ? 0.2 : 0.08;
     const followTargetX =
-      input.activeState === "sleeping" ? 0 : clamp(pointerDeltaX * 0.012, -5.5, 5.5);
+      input.activeState === "sleeping" || input.activeState === "walking"
+        ? 0
+        : clamp(pointerDeltaX * 0.012, -5.5, 5.5);
+    const walkTargetX = input.walking ? clamp(input.walkTargetX, -8_000, 8_000) : 0;
 
     this.lookX += (lookTargetX - this.lookX) * lookBlend;
     this.lookY += (lookTargetY - this.lookY) * 0.06;
     this.followOffsetX += (followTargetX - this.followOffsetX) * (input.dragging ? 0.14 : 0.06);
+    this.walkOffsetX += (walkTargetX - this.walkOffsetX) * (input.walking ? 0.09 : 0.05);
 
     if (input.dragging || input.activeState === "sleeping") {
       this.blinkPhase = 0;
@@ -125,12 +132,12 @@ export class CatMotionController {
     }
 
     const idleTargetX =
-      input.activeState === "sleeping"
+      input.activeState === "sleeping" || input.activeState === "walking"
         ? Math.sin(input.elapsed * 0.32 + this.seed) * 0.4
         : Math.sin(input.elapsed * 0.55 + this.seed) * 1.2 +
           Math.sin(input.elapsed * 1.9 + this.seed * 0.7) * 0.45;
     const idleTargetY =
-      input.activeState === "sleeping"
+      input.activeState === "sleeping" || input.activeState === "walking"
         ? Math.sin(input.elapsed * 0.42 + this.seed * 0.5) * 0.7
         : Math.sin(input.elapsed * 0.72 + this.seed * 0.8) * 0.55;
 
@@ -166,11 +173,15 @@ export class CatMotionController {
     const bob =
       input.activeState === "sleeping"
         ? Math.sin(input.elapsed * 1.4 + this.seed) * 1.35
-        : Math.sin(input.elapsed * 3.2 + this.seed) * 1.05;
+        : input.activeState === "walking"
+          ? Math.sin(input.elapsed * 5.2 + this.seed) * 1.35
+          : Math.sin(input.elapsed * 3.2 + this.seed) * 1.05;
     const idleSway =
       input.activeState === "sleeping"
         ? Math.sin(input.elapsed * 0.8 + this.seed) * 0.01
-        : Math.sin(input.elapsed * 1.1 + this.seed) * 0.014 * orientation;
+        : input.activeState === "walking"
+          ? Math.sin(input.elapsed * 1.8 + this.seed) * 0.02 * orientation
+          : Math.sin(input.elapsed * 1.1 + this.seed) * 0.014 * orientation;
 
     const rotation =
       clamp(input.pullX / 160, -0.16, 0.16) * 0.45 +
@@ -185,7 +196,12 @@ export class CatMotionController {
       lookX: this.lookX,
       lookY: this.lookY,
       blink: this.blinkEase,
-      rootX: this.idleOffsetX + this.releaseOffsetX + this.edgeOffsetX + this.followOffsetX,
+      rootX:
+        this.idleOffsetX +
+        this.releaseOffsetX +
+        this.edgeOffsetX +
+        this.followOffsetX +
+        this.walkOffsetX,
       rootY: this.idleOffsetY + this.releaseOffsetY + bob * 0.2 + this.edgeOffsetY,
       rotation,
     };

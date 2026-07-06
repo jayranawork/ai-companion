@@ -88,6 +88,7 @@ Work:
 - add show, hide, pause, and reset actions
 - add focus mode controls
 - add startup behavior controls
+- add build and runtime info inside the controls panel
 
 Done when:
 
@@ -95,6 +96,7 @@ Done when:
 - key preferences persist between launches
 - tray controls are available for show, hide, pause, reset, and startup toggles
 - an in-app settings panel is available for the same core controls
+- a small build info section is available for packaged-build checks
 
 ## Phase 1.4: Developer Awareness Layer
 
@@ -108,11 +110,19 @@ Work:
 - detect Git actions
 - detect editor focus and long coding sessions
 - emit cat reactions based on those signals
+- add lightweight session awareness and long-session nudges inside the app
+- add dev build-status awareness for the live Electron watch loop
+- add a terminal command wrapper that can publish activity from any project
+- add an opt-in edge-walking mode that moves the cat across the desktop
 
 Done when:
 
 - the cat responds to development activity without being noisy
 - the behavior layer stays modular and opt-in
+- the app can show a gentle session-aware nudge during long work periods
+- the app can reflect build activity while the Electron watch loop is compiling or ready
+- the app can reflect terminal command activity from a shared signal source
+- the user can toggle a roaming mode that walks the cat from edge to edge
 
 ## Phase 1.5: Optional AI Companion Layer
 

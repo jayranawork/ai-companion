@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, access, watch } from "node:fs/promises";
+import { mkdirSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -11,16 +13,39 @@ const tscScript = path.join(rootDir, "node_modules", "typescript", "lib", "tsc.j
 const electronCli = path.join(rootDir, "node_modules", "electron", "cli.js");
 const viteUrl = "http://127.0.0.1:5173";
 const devUserDataDir = path.join(rootDir, ".desktop-dev-cat-devdata");
+const devSignalDir = process.env.DESKTOP_DEV_CAT_SIGNAL_DIR ?? path.join(os.homedir(), ".desktop-dev-cat");
+const devSignalPath = path.join(devSignalDir, "activity-signal.json");
 
 let rendererProcess = null;
 let typecheckProcess = null;
 let electronProcess = null;
 let shuttingDown = false;
 let restartTimer = null;
+let buildRestartTimer = null;
+let buildRestartPending = false;
 const watcherAbort = new AbortController();
 
 function log(message) {
   process.stdout.write(`[dev] ${message}\n`);
+}
+
+function writeDevSignal(status, message, extras = {}) {
+  mkdirSync(devSignalDir, { recursive: true });
+  writeFileSync(
+    devSignalPath,
+    JSON.stringify(
+      {
+        source: "build",
+        ...extras,
+        status,
+        message,
+        updatedAt: Date.now(),
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
 }
 
 function spawnNodeScript(scriptPath, args, extraEnv = {}) {
@@ -44,6 +69,7 @@ function attachExitLog(child, label) {
     const suffix =
       code !== null ? `code ${code}` : signal ? `signal ${signal}` : "unknown exit";
     log(`${label} exited (${suffix})`);
+    writeDevSignal("error", `${label} exited (${suffix}).`);
   });
 }
 
@@ -96,10 +122,12 @@ function startElectron() {
   }
 
   log("starting Electron");
+  writeDevSignal("ready", "Electron is running and the app is ready.");
   electronProcess = spawnNodeScript(electronCli, ["."], {
     VITE_DEV_SERVER_URL: viteUrl,
     OPEN_DEVTOOLS: process.env.OPEN_DEVTOOLS ?? "false",
     DESKTOP_DEV_CAT_USER_DATA_DIR: devUserDataDir,
+    DESKTOP_DEV_CAT_SIGNAL_DIR: devSignalDir,
     DESKTOP_DEV_CAT_DISABLE_GPU: "1",
   });
 
@@ -130,12 +158,29 @@ function requestElectronRestart() {
     return;
   }
 
-  if (restartTimer) {
-    clearTimeout(restartTimer);
+  if (buildRestartPending) {
+    return;
   }
 
-  log("main process changed; restarting Electron");
-  stopElectron();
+  writeDevSignal("compiling", "Main process changed. Rebuilding Electron files...");
+
+  buildRestartPending = true;
+
+  if (buildRestartTimer) {
+    clearTimeout(buildRestartTimer);
+  }
+
+  buildRestartTimer = setTimeout(() => {
+    buildRestartTimer = null;
+
+    if (shuttingDown) {
+      return;
+    }
+
+    log("main process changed; restarting Electron");
+    stopElectron();
+    buildRestartPending = false;
+  }, 180);
 }
 
 async function watchElectronOutput() {
@@ -181,6 +226,11 @@ async function shutdown() {
     restartTimer = null;
   }
 
+  if (buildRestartTimer) {
+    clearTimeout(buildRestartTimer);
+    buildRestartTimer = null;
+  }
+
   if (rendererProcess && rendererProcess.exitCode === null && !rendererProcess.killed) {
     rendererProcess.kill();
   }
@@ -203,10 +253,12 @@ process.on("SIGTERM", () => {
 
 async function main() {
   log("starting renderer dev server");
+  writeDevSignal("starting", "Starting the dev environment...");
   rendererProcess = spawnNodeScript(viteScript, []);
   attachExitLog(rendererProcess, "Vite");
 
   log("starting TypeScript watch for Electron files");
+  writeDevSignal("compiling", "Building Electron files...");
   typecheckProcess = spawnNodeScript(tscScript, [
     "-p",
     "tsconfig.node.json",
@@ -222,6 +274,7 @@ async function main() {
   void watchElectronOutput();
 
   log("dev environment is ready");
+  writeDevSignal("ready", "Dev environment is ready.");
 }
 
 void main().catch((error) => {

@@ -19,6 +19,8 @@ import { getReminderContent, reminderKindOptions } from "./CatReminderContent";
 import { CatReminderScheduler } from "./CatReminderScheduler";
 import { CatStateMachine } from "./CatStateMachine";
 import type { AppSettings } from "../shared/appSettings";
+import type { AppDevSignal } from "../shared/devSignal";
+import type { AppRuntimeInfo } from "../shared/appRuntimeInfo";
 import type { CatReminder, CatState, CustomReminder } from "./CatTypes";
 
 const REMINDER_STORAGE_KEY = "desktop-dev-cat.custom-reminders";
@@ -60,6 +62,24 @@ function loadStoredReminders(): CustomReminder[] {
   }
 }
 
+function inferReminderKindFromSignal(signal: AppDevSignal): CatReminder["kind"] {
+  if (signal.source === "build") {
+    return signal.status === "error" ? "debug" : "build";
+  }
+
+  const command = signal.command ?? "";
+
+  if (/(git|commit|push|pull|merge|rebase|checkout|branch)/i.test(command)) {
+    return "git";
+  }
+
+  if (/(build|compile|tsc|vite build|webpack|rollup|cargo build|go build|test|jest|vitest|pytest|npm test)/i.test(command)) {
+    return signal.status === "error" ? "debug" : "build";
+  }
+
+  return "debug";
+}
+
 type RendererControls = {
   showReminder: (reminder: CatReminder) => void;
   triggerMood: (state: Extract<CatState, "happy" | "angry">) => void;
@@ -80,6 +100,10 @@ export function CatRenderer() {
   const appSettingsRef = useRef<AppSettings | null>(null);
   const catPositionRef = useRef({ x: 0, centerX: 0 });
   const launcherSideRef = useRef<PanelSide>("right");
+  const sessionSecondsRef = useRef(0);
+  const longSessionNudgeShownRef = useRef(false);
+  const roamModeRef = useRef(false);
+  const roamFacingRef = useRef<1 | -1>(1);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("reminders");
@@ -87,6 +111,11 @@ export function CatRenderer() {
   const [panelSide, setPanelSide] = useState<PanelSide>("left");
   const [launcherVisible, setLauncherVisible] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [devSignal, setDevSignal] = useState<AppDevSignal | null>(null);
+  const [runtimeInfo, setRuntimeInfo] = useState<AppRuntimeInfo | null>(null);
+  const [sessionSeconds, setSessionSeconds] = useState(0);
+  const [longSessionNudgeShown, setLongSessionNudgeShown] = useState(false);
+  const [roamMode, setRoamMode] = useState(false);
   const [customReminders, setCustomReminders] = useState<CustomReminder[]>(() =>
     loadStoredReminders(),
   );
@@ -118,6 +147,16 @@ export function CatRenderer() {
     setPanelOpen(true);
   };
 
+  const toggleRoamMode = () => {
+    setRoamMode((value) => {
+      const next = !value;
+      if (next) {
+        setPanelOpen(false);
+      }
+      return next;
+    });
+  };
+
   const handleScenePointerDownCapture = (event: React.PointerEvent<HTMLElement>) => {
     if (!panelOpen) {
       return;
@@ -145,6 +184,20 @@ export function CatRenderer() {
   }, [customReminders]);
 
   useEffect(() => {
+    let active = true;
+
+    void window.desktopDevCat.getRuntimeInfo().then((info) => {
+      if (active) {
+        setRuntimeInfo(info);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!launcherVisible) {
       return;
     }
@@ -161,6 +214,83 @@ export function CatRenderer() {
       }
     };
   }, [launcherVisible]);
+
+  useEffect(() => {
+    sessionSecondsRef.current = 0;
+    setSessionSeconds(0);
+    longSessionNudgeShownRef.current = false;
+    setLongSessionNudgeShown(false);
+  }, []);
+
+  useEffect(() => {
+    roamModeRef.current = roamMode;
+  }, [roamMode]);
+
+  useEffect(() => {
+    void window.desktopDevCat.setWindowRoam(roamMode);
+  }, [roamMode]);
+
+  useEffect(() => {
+    const removeListener = window.desktopDevCat.onWindowRoamDirectionChanged((direction) => {
+      roamFacingRef.current = direction >= 0 ? 1 : -1;
+    });
+
+    return () => {
+      removeListener();
+    };
+  }, []);
+
+  useEffect(() => {
+    const removeListener = window.desktopDevCat.onWindowRoamStateChanged((roaming) => {
+      setRoamMode(roaming);
+    });
+
+    return () => {
+      removeListener();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    void window.desktopDevCat.getDevSignal().then((signal) => {
+      if (active) {
+        setDevSignal(signal);
+      }
+    });
+
+    const removeListener = window.desktopDevCat.onDevSignalChanged((signal) => {
+      setDevSignal(signal);
+    });
+
+    return () => {
+      active = false;
+      removeListener();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!devSignal) {
+      return;
+    }
+
+    if (devSignal.status === "ready") {
+      controlsRef.current?.triggerMood("happy");
+      return;
+    }
+
+    if (devSignal.status === "error") {
+      controlsRef.current?.triggerMood("angry");
+      return;
+    }
+
+    if (devSignal.status === "compiling" || devSignal.status === "restarting") {
+      controlsRef.current?.showReminder({
+        kind: inferReminderKindFromSignal(devSignal),
+        message: devSignal.message,
+      });
+    }
+  }, [devSignal]);
 
   useEffect(() => {
     if (!panelOpen) {
@@ -201,6 +331,7 @@ export function CatRenderer() {
     let app: Application | null = null;
     let removeEdgeContactListener: (() => void) | null = null;
     let removeSettingsListener: (() => void) | null = null;
+    let removeRoamStateListener: (() => void) | null = null;
 
     async function setupScene() {
       const pixiApp = new Application();
@@ -329,6 +460,15 @@ export function CatRenderer() {
         setAppSettings(settings);
       });
 
+      removeRoamStateListener = window.desktopDevCat.onWindowRoamStateChanged((roaming) => {
+        roamModeRef.current = roaming;
+        setRoamMode(roaming);
+
+        if (!roaming && !dragging && activeState === "walking") {
+          applyState("idle");
+        }
+      });
+
       removeEdgeContactListener = window.desktopDevCat.onWindowDragEdge((contact) => {
         motionController.registerEdgeContact(contact);
         if (contact.left) {
@@ -337,12 +477,10 @@ export function CatRenderer() {
           setPreferredLauncherSide("left");
         }
 
-        if (dragging) {
-          triggerEdgeBurst(
-            contact.left ? -28 : contact.right ? 28 : 0,
-            contact.top ? -26 : contact.bottom ? 28 : 0,
-          );
-        }
+        triggerEdgeBurst(
+          contact.left ? 28 : contact.right ? -28 : 0,
+          contact.top ? -26 : contact.bottom ? 28 : 0,
+        );
       });
 
       const applyState = (state: CatState) => {
@@ -372,6 +510,10 @@ export function CatRenderer() {
       const handlePointerMove = (event: FederatedPointerEvent) => {
         pointer.copyFrom(event.global);
         nudgeSleepTimer();
+
+        if (roamModeRef.current && !dragging) {
+          return;
+        }
 
         if (!dragging) {
           const dx = event.global.x - catRoot.x;
@@ -475,6 +617,13 @@ export function CatRenderer() {
         const runtimeSettings = appSettingsRef.current;
         const paused = runtimeSettings?.paused ?? false;
         const focusMode = runtimeSettings?.focusMode ?? false;
+        const roaming = roamModeRef.current && !paused;
+        const roundedSessionSeconds = Math.floor(elapsed);
+
+        if (roundedSessionSeconds !== sessionSecondsRef.current) {
+          sessionSecondsRef.current = roundedSessionSeconds;
+          setSessionSeconds(roundedSessionSeconds);
+        }
 
         if (manualMood && elapsed >= manualMood.until) {
           manualMood = null;
@@ -489,8 +638,36 @@ export function CatRenderer() {
 
         edgeBurstCooldown = Math.max(0, edgeBurstCooldown - deltaSeconds);
 
-        if (!paused && !dragging && elapsed >= sleepDeadline && !manualMood) {
+        if (!paused && !dragging && elapsed >= sleepDeadline && !manualMood && !roaming) {
           applyState("sleeping");
+        }
+
+        if (roaming && !dragging && !manualMood) {
+          if (activeState !== "walking") {
+            applyState("walking");
+          }
+        } else if (!roaming && !dragging && !manualMood) {
+          if (activeState === "walking") {
+            applyState("idle");
+          }
+        }
+
+        if (
+          !paused &&
+          !focusMode &&
+          !longSessionNudgeShownRef.current &&
+          elapsed >= 600
+        ) {
+          longSessionNudgeShownRef.current = true;
+          setLongSessionNudgeShown(true);
+          controlsRef.current?.showReminder({
+            kind: "focus",
+            message: getReminderContent("focus").message,
+          });
+
+          if (activeState === "idle") {
+            applyState("curious");
+          }
         }
 
         const nextReminder =
@@ -515,6 +692,8 @@ export function CatRenderer() {
           elapsed,
           deltaSeconds,
           facing: activeFacing,
+          walking: roaming && !dragging && !manualMood,
+          walkTargetX: 0,
           pointerX: pointer.x,
           pullX: pullVector.x,
           pullY: pullVector.y,
@@ -529,6 +708,8 @@ export function CatRenderer() {
             : pullVector.x > 8
               ? 1
               : activeFacing
+          : roaming && !dragging
+            ? roamFacingRef.current
           : motion.lookX < -2
             ? -1
             : motion.lookX > 2
@@ -576,6 +757,10 @@ export function CatRenderer() {
       if (removeSettingsListener) {
         removeSettingsListener();
         removeSettingsListener = null;
+      }
+      if (removeRoamStateListener) {
+        removeRoamStateListener();
+        removeRoamStateListener = null;
       }
       window.desktopDevCat.endWindowDrag();
 
@@ -838,6 +1023,20 @@ export function CatRenderer() {
               </section>
 
               <section className="cat-controls__group">
+                <h3>Movement</h3>
+                <button
+                  type="button"
+                  className={roamMode ? "cat-controls__wideButton cat-controls__wideButton--active" : "cat-controls__wideButton"}
+                  onClick={toggleRoamMode}
+                >
+                  {roamMode ? "Stop edge walking" : "Start edge walking"}
+                </button>
+                <p className="cat-panel__hint">
+                  When enabled, the cat will walk across the desktop between edges until you stop it.
+                </p>
+              </section>
+
+              <section className="cat-controls__group">
                 <h3>Startup</h3>
                 <label className="cat-controls__toggle">
                   <input
@@ -849,6 +1048,78 @@ export function CatRenderer() {
                   />
                   <span>Launch at startup</span>
                 </label>
+              </section>
+
+              <section className="cat-controls__group">
+                <h3>Dev Signal</h3>
+                <div className="cat-controls__info">
+                  <div>
+                    <span>Status</span>
+                    <strong>{devSignal?.status ?? "idle"}</strong>
+                  </div>
+                  <div>
+                    <span>Source</span>
+                    <strong>{devSignal?.source ?? "none"}</strong>
+                  </div>
+                  <div>
+                    <span>Message</span>
+                    <strong>{devSignal?.message ?? "Waiting for the next build signal..."}</strong>
+                  </div>
+                  <div>
+                    <span>Command</span>
+                    <strong>{devSignal?.command ?? "Not running a tracked terminal command."}</strong>
+                  </div>
+                  <div>
+                    <span>CWD</span>
+                    <strong>{devSignal?.cwd ?? "Shared signal only."}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="cat-controls__group">
+                <h3>Session</h3>
+                <div className="cat-controls__info">
+                  <div>
+                    <span>Active time</span>
+                    <strong>
+                      {Math.floor(sessionSeconds / 60)
+                        .toString()
+                        .padStart(2, "0")}
+                      :
+                      {(sessionSeconds % 60).toString().padStart(2, "0")}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Long-session nudge</span>
+                    <strong>{longSessionNudgeShown ? "Shown" : "Waiting"}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="cat-controls__group">
+                <h3>Build Info</h3>
+                <div className="cat-controls__info">
+                  <div>
+                    <span>App</span>
+                    <strong>{runtimeInfo?.appVersion ?? "Loading..."}</strong>
+                  </div>
+                  <div>
+                    <span>Runtime</span>
+                    <strong>
+                      {runtimeInfo
+                        ? `${runtimeInfo.electronVersion} / ${runtimeInfo.nodeVersion}`
+                        : "Loading..."}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Target</span>
+                    <strong>
+                      {runtimeInfo
+                        ? `${runtimeInfo.platform}${runtimeInfo.isPackaged ? " / packaged" : " / dev"}`
+                        : "Loading..."}
+                    </strong>
+                  </div>
+                </div>
               </section>
             </div>
           ) : null}

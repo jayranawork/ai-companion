@@ -1,15 +1,24 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { existsSync, mkdirSync, readFileSync, watch as watchFile } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createAppSettingsStore, readAppSettings, writeAppSettings } from "./appSettings";
 import { createAppTray } from "./appTray";
 import { createMainWindow } from "../window/createMainWindow";
 import { defaultAppSettings, type AppSettings } from "../shared/appSettings";
+import type { AppRuntimeInfo } from "../shared/appRuntimeInfo";
+import type { AppDevSignal } from "../shared/devSignal";
 
 let mainWindow: ReturnType<typeof createMainWindow> | null = null;
 let restoreWindow: BrowserWindow | null = null;
 let appSettingsStore: ReturnType<typeof createAppSettingsStore> | null = null;
 let appSettings: AppSettings = defaultAppSettings;
 let trayController: ReturnType<typeof createAppTray> | null = null;
+let devSignalWatcher: ReturnType<typeof watchFile> | null = null;
+let devSignal: AppDevSignal | null = null;
+let roamTimer: NodeJS.Timeout | null = null;
+let roamRequested = false;
+let roamDirection = 1;
 let quitting = false;
 const dragAnchors = new Map<
   number,
@@ -71,8 +80,23 @@ const restoreWindowHtml = `<!doctype html>
 <body>
   <button id="restore-button" type="button">Show Cat</button>
   <script>
-    document.getElementById("restore-button").addEventListener("click", () => {
-      window.desktopDevCat.showWindow();
+    const button = document.getElementById("restore-button");
+    const updateButton = (roaming) => {
+      button.textContent = roaming ? "Stop Walking" : "Show Cat";
+    };
+
+    window.desktopDevCat.getWindowRoamState().then(updateButton);
+    window.desktopDevCat.onWindowRoamStateChanged(updateButton);
+
+    button.addEventListener("click", () => {
+      window.desktopDevCat.getWindowRoamState().then((roaming) => {
+        if (roaming) {
+          window.desktopDevCat.setWindowRoam(false);
+          return;
+        }
+
+        window.desktopDevCat.showWindow();
+      });
     });
   </script>
 </body>
@@ -119,12 +143,110 @@ function sendSettingsChanged() {
   });
 }
 
+function sendRoamDirectionChanged() {
+  mainWindow?.webContents.send("app-window:roam-direction", roamDirection);
+}
+
+function sendRoamStateChanged() {
+  mainWindow?.webContents.send("app-window:roam-state:changed", roamRequested);
+  restoreWindow?.webContents.send("app-window:roam-state:changed", roamRequested);
+}
+
+function resolveDevSignalPath() {
+  const baseDir = process.env.DESKTOP_DEV_CAT_SIGNAL_DIR ?? path.join(os.homedir(), ".desktop-dev-cat");
+  return path.join(baseDir, "activity-signal.json");
+}
+
+function sendDevSignalChanged() {
+  mainWindow?.webContents.send("app-dev-signal:changed", devSignal);
+}
+
+function readDevSignalFromDisk() {
+  const signalPath = resolveDevSignalPath();
+
+  if (!existsSync(signalPath)) {
+    devSignal = null;
+    sendDevSignalChanged();
+    return;
+  }
+
+  try {
+    const raw = readFileSync(signalPath, "utf8");
+    const parsed = JSON.parse(raw) as AppDevSignal;
+
+    if (
+      typeof parsed?.source === "string" &&
+      typeof parsed?.status === "string" &&
+      typeof parsed?.message === "string" &&
+      typeof parsed?.updatedAt === "number"
+    ) {
+      devSignal = parsed;
+      sendDevSignalChanged();
+      return;
+    }
+  } catch {
+    // Ignore malformed dev-only signal files.
+  }
+
+  devSignal = null;
+  sendDevSignalChanged();
+}
+
+function watchDevSignalFile() {
+  const signalPath = resolveDevSignalPath();
+  const signalDir = path.dirname(signalPath);
+
+  if (devSignalWatcher) {
+    devSignalWatcher.close();
+    devSignalWatcher = null;
+  }
+
+  mkdirSync(signalDir, { recursive: true });
+
+  try {
+    devSignalWatcher = watchFile(signalDir, { persistent: false }, (eventType, filename) => {
+      if (!filename) {
+        return;
+      }
+
+      if (filename !== path.basename(signalPath)) {
+        return;
+      }
+
+      if (eventType === "rename" || eventType === "change") {
+        readDevSignalFromDisk();
+      }
+    });
+  } catch {
+    devSignalWatcher = null;
+  }
+}
+
+function getRuntimeInfo(): AppRuntimeInfo {
+  return {
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron ?? "",
+    chromeVersion: process.versions.chrome ?? "",
+    nodeVersion: process.versions.node ?? "",
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+  };
+}
+
 function syncSettingsPatch(patch: Partial<AppSettings>) {
   if (!appSettingsStore) {
     return appSettings;
   }
 
   appSettings = writeAppSettings(appSettingsStore, patch);
+
+  if (Object.prototype.hasOwnProperty.call(patch, "paused")) {
+    if (patch.paused) {
+      stopWindowRoam(true);
+    } else if (roamRequested) {
+      startWindowRoam();
+    }
+  }
 
   if (process.platform === "win32") {
     app.setLoginItemSettings({
@@ -191,7 +313,7 @@ function resetWindowPosition() {
 function getRestoreWindowBounds() {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
-  const width = 116;
+  const width = 132;
   const height = 40;
   const margin = 16;
 
@@ -260,6 +382,81 @@ function hideRestoreWindow() {
   }
 
   restoreWindow.hide();
+}
+
+function stopWindowRoam(preserveRequest = false) {
+  if (!preserveRequest) {
+    roamRequested = false;
+    sendRoamStateChanged();
+    hideRestoreWindow();
+  }
+
+  if (roamTimer) {
+    clearInterval(roamTimer);
+    roamTimer = null;
+  }
+}
+
+function startWindowRoam() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  roamRequested = true;
+  sendRoamStateChanged();
+  showRestoreWindow();
+  stopWindowRoam(true);
+  roamDirection = mainWindow.getPosition()[0] < 0 ? 1 : -1;
+  sendRoamDirectionChanged();
+
+  roamTimer = setInterval(() => {
+    const window = mainWindow;
+
+    if (!window || window.isDestroyed()) {
+      stopWindowRoam();
+      return;
+    }
+
+    if (!window.isVisible()) {
+      return;
+    }
+
+    const bounds = window.getBounds();
+    const display = screen.getDisplayMatching(bounds);
+    const workArea = display.workArea;
+    const speed = 3.2;
+    const edgeMargin = 4;
+    const topVisibleMargin = 12;
+    const halfWidth = bounds.width / 2;
+    const halfHeight = bounds.height / 2;
+    const minX = workArea.x - (halfWidth - edgeMargin);
+    const maxX = workArea.x + workArea.width - (halfWidth + edgeMargin);
+    const minY = workArea.y + topVisibleMargin;
+    const maxY = workArea.y + workArea.height - (halfHeight + edgeMargin);
+    const [currentX, currentY] = window.getPosition();
+    const safeCurrentX = Number.isFinite(currentX) ? currentX : workArea.x;
+    const safeCurrentY = Number.isFinite(currentY) ? currentY : workArea.y;
+    const nextX = safeCurrentX + roamDirection * speed;
+    const nextY = clamp(safeCurrentY, minY, maxY);
+
+    if (nextX <= minX || nextX >= maxX) {
+      roamDirection *= -1;
+      sendRoamDirectionChanged();
+      window.webContents.send("window-drag:edge", {
+        left: nextX <= minX,
+        right: nextX >= maxX,
+        top: false,
+        bottom: false,
+      });
+    }
+
+    const targetX = Math.round(clamp(Number.isFinite(nextX) ? nextX : safeCurrentX, minX, maxX));
+    const targetY = Math.round(Number.isFinite(nextY) ? nextY : safeCurrentY);
+
+    if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
+      window.setPosition(targetX, targetY);
+    }
+  }, 16);
 }
 
 function registerWindowDragIpc() {
@@ -349,6 +546,8 @@ function registerControlIpc() {
   ipcMain.handle("app-settings:set", (_, patch: Partial<AppSettings>) => {
     return syncSettingsPatch(patch);
   });
+  ipcMain.handle("app-runtime:get", () => getRuntimeInfo());
+  ipcMain.handle("app-dev-signal:get", () => devSignal);
   ipcMain.handle("app-window:show", () => {
     showWindow();
   });
@@ -360,6 +559,14 @@ function registerControlIpc() {
   });
   ipcMain.handle("app-window:reset", () => {
     resetWindowPosition();
+  });
+  ipcMain.handle("app-window:roam-state", () => roamRequested);
+  ipcMain.handle("app-window:roam", (_, enabled: boolean) => {
+    if (enabled) {
+      startWindowRoam();
+    } else {
+      stopWindowRoam();
+    }
   });
 }
 
@@ -399,6 +606,8 @@ async function bootstrap(): Promise<void> {
 
   appSettingsStore = createAppSettingsStore();
   appSettings = readAppSettings(appSettingsStore);
+  readDevSignalFromDisk();
+  watchDevSignalFile();
 
   if (process.platform === "win32") {
     app.setLoginItemSettings({
@@ -446,10 +655,15 @@ app.on("before-quit", () => {
   quitting = true;
   trayController?.destroy();
   trayController = null;
+  if (devSignalWatcher) {
+    devSignalWatcher.close();
+    devSignalWatcher = null;
+  }
   if (restoreWindow && !restoreWindow.isDestroyed()) {
     restoreWindow.destroy();
   }
   restoreWindow = null;
+  stopWindowRoam();
 });
 
 app.on("window-all-closed", () => {

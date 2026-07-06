@@ -4,6 +4,7 @@ export type CatState =
   | "idle"
   | "curious"
   | "dragging"
+  | "walking"
   | "stretching"
   | "sleeping"
   | "happy"

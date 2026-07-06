@@ -132,6 +132,7 @@ We are using this phase to add:
 - show, hide, pause, and reset actions
 - focus mode controls
 - launch-at-startup controls
+- build and runtime info in the control panel
 
 The goal is for the app to feel like a real desktop product instead of only a hidden pet surface.
 
@@ -143,6 +144,10 @@ Immediate next steps:
 2. confirm focus mode and pause actually influence cat behavior
 3. keep the control surface lightweight and easy to discover
 4. start shaping the developer-awareness layer after the controls feel stable
+5. expand session awareness into real editor, terminal, and Git signals
+6. keep the dev build-status signal small and visible during local development
+7. add a terminal wrapper so other projects can publish activity into the shared signal file
+8. add an opt-in roaming mode so the cat can walk between desktop edges on demand
 
 After that:
 
