@@ -64,20 +64,46 @@ function loadStoredReminders(): CustomReminder[] {
 
 function inferReminderKindFromSignal(signal: AppDevSignal): CatReminder["kind"] {
   if (signal.source === "build") {
-    return signal.status === "error" ? "debug" : "build";
+    if (signal.status === "error") {
+      return "debug";
+    }
+
+    if (signal.status === "long-running") {
+      return "break";
+    }
+
+    return "build";
   }
 
-  const command = signal.command ?? "";
-
-  if (/(git|commit|push|pull|merge|rebase|checkout|branch)/i.test(command)) {
+  if (signal.commandCategory === "git") {
     return "git";
   }
 
-  if (/(build|compile|tsc|vite build|webpack|rollup|cargo build|go build|test|jest|vitest|pytest|npm test)/i.test(command)) {
+  if (signal.commandCategory === "build") {
     return signal.status === "error" ? "debug" : "build";
   }
 
-  return "debug";
+  if (signal.commandCategory === "test") {
+    return signal.status === "error" ? "debug" : "focus";
+  }
+
+  if (signal.commandCategory === "install") {
+    return "break";
+  }
+
+  if (
+    signal.commandCategory === "run" ||
+    signal.commandCategory === "serve" ||
+    signal.commandCategory === "watch"
+  ) {
+    return signal.status === "error" ? "debug" : "focus";
+  }
+
+  if (signal.commandCategory === "debug") {
+    return "debug";
+  }
+
+  return signal.status === "error" ? "debug" : "focus";
 }
 
 type RendererControls = {
@@ -274,7 +300,11 @@ export function CatRenderer() {
       return;
     }
 
-    if (devSignal.status === "compiling" || devSignal.status === "restarting") {
+    if (
+      devSignal.status === "compiling" ||
+      devSignal.status === "restarting" ||
+      devSignal.status === "long-running"
+    ) {
       controlsRef.current?.showReminder({
         kind: inferReminderKindFromSignal(devSignal),
         message: devSignal.message,
@@ -1085,6 +1115,22 @@ export function CatRenderer() {
                   <div>
                     <span>Command</span>
                     <strong>{devSignal?.command ?? "Not running a tracked terminal command."}</strong>
+                  </div>
+                  <div>
+                    <span>Category</span>
+                    <strong>{devSignal?.commandCategory ?? "unknown"}</strong>
+                  </div>
+                  <div>
+                    <span>Long running</span>
+                    <strong>{devSignal?.longRunning ? "yes" : "no"}</strong>
+                  </div>
+                  <div>
+                    <span>Duration</span>
+                    <strong>
+                      {typeof devSignal?.durationMs === "number"
+                        ? `${Math.max(0, Math.round(devSignal.durationMs / 1000))}s`
+                        : "n/a"}
+                    </strong>
                   </div>
                   <div>
                     <span>CWD</span>

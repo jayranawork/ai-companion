@@ -23,6 +23,9 @@ let shuttingDown = false;
 let restartTimer = null;
 let buildRestartTimer = null;
 let buildRestartPending = false;
+let buildPhaseActive = false;
+let buildLongRunningTimer = null;
+let buildPhaseStartedAt = 0;
 const watcherAbort = new AbortController();
 
 function log(message) {
@@ -48,6 +51,31 @@ function writeDevSignal(status, message, extras = {}) {
   );
 }
 
+function clearBuildLongRunningTimer() {
+  if (buildLongRunningTimer) {
+    clearTimeout(buildLongRunningTimer);
+    buildLongRunningTimer = null;
+  }
+}
+
+function startBuildLongRunningTimer(message) {
+  clearBuildLongRunningTimer();
+
+  buildLongRunningTimer = setTimeout(() => {
+    buildLongRunningTimer = null;
+
+    if (shuttingDown || !buildPhaseActive) {
+      return;
+    }
+
+    writeDevSignal("long-running", message, {
+      commandCategory: "build",
+      longRunning: true,
+      durationMs: Date.now() - buildPhaseStartedAt,
+    });
+  }, 20000);
+}
+
 function spawnNodeScript(scriptPath, args, extraEnv = {}) {
   return spawn(process.execPath, [scriptPath, ...args], {
     cwd: rootDir,
@@ -60,7 +88,7 @@ function spawnNodeScript(scriptPath, args, extraEnv = {}) {
   });
 }
 
-function attachExitLog(child, label) {
+function attachExitLog(child, label, extras = {}) {
   child.on("exit", (code, signal) => {
     if (shuttingDown) {
       return;
@@ -69,7 +97,12 @@ function attachExitLog(child, label) {
     const suffix =
       code !== null ? `code ${code}` : signal ? `signal ${signal}` : "unknown exit";
     log(`${label} exited (${suffix})`);
-    writeDevSignal("error", `${label} exited (${suffix}).`);
+    clearBuildLongRunningTimer();
+    buildPhaseActive = false;
+    writeDevSignal("error", `${label} exited (${suffix}).`, {
+      commandCategory: "build",
+      ...extras,
+    });
   });
 }
 
@@ -122,7 +155,12 @@ function startElectron() {
   }
 
   log("starting Electron");
-  writeDevSignal("ready", "Electron is running and the app is ready.");
+  buildPhaseActive = false;
+  clearBuildLongRunningTimer();
+  writeDevSignal("ready", "Electron is running and the app is ready.", {
+    commandCategory: "build",
+    durationMs: buildPhaseStartedAt ? Date.now() - buildPhaseStartedAt : undefined,
+  });
   electronProcess = spawnNodeScript(electronCli, ["."], {
     VITE_DEV_SERVER_URL: viteUrl,
     OPEN_DEVTOOLS: process.env.OPEN_DEVTOOLS ?? "false",
@@ -162,7 +200,13 @@ function requestElectronRestart() {
     return;
   }
 
-  writeDevSignal("compiling", "Main process changed. Rebuilding Electron files...");
+  buildPhaseStartedAt = Date.now();
+  buildPhaseActive = true;
+  writeDevSignal("compiling", "Main process changed. Rebuilding Electron files...", {
+    commandCategory: "build",
+    durationMs: 0,
+  });
+  startBuildLongRunningTimer("Electron rebuild is taking a while.");
 
   buildRestartPending = true;
 
@@ -231,6 +275,9 @@ async function shutdown() {
     buildRestartTimer = null;
   }
 
+  clearBuildLongRunningTimer();
+  buildPhaseActive = false;
+
   if (rendererProcess && rendererProcess.exitCode === null && !rendererProcess.killed) {
     rendererProcess.kill();
   }
@@ -253,19 +300,27 @@ process.on("SIGTERM", () => {
 
 async function main() {
   log("starting renderer dev server");
-  writeDevSignal("starting", "Starting the dev environment...");
+  buildPhaseStartedAt = Date.now();
+  buildPhaseActive = true;
+  writeDevSignal("starting", "Starting the dev environment...", {
+    commandCategory: "build",
+  });
   rendererProcess = spawnNodeScript(viteScript, []);
-  attachExitLog(rendererProcess, "Vite");
+  attachExitLog(rendererProcess, "Vite", { commandCategory: "build" });
 
   log("starting TypeScript watch for Electron files");
-  writeDevSignal("compiling", "Building Electron files...");
+  writeDevSignal("compiling", "Building Electron files...", {
+    commandCategory: "build",
+    durationMs: 0,
+  });
+  startBuildLongRunningTimer("Initial Electron build is taking a while.");
   typecheckProcess = spawnNodeScript(tscScript, [
     "-p",
     "tsconfig.node.json",
     "--watch",
     "--preserveWatchOutput",
   ]);
-  attachExitLog(typecheckProcess, "TypeScript watch");
+  attachExitLog(typecheckProcess, "TypeScript watch", { commandCategory: "build" });
 
   await waitForHttp(viteUrl);
   await waitForFile(mainOutput);
@@ -274,7 +329,12 @@ async function main() {
   void watchElectronOutput();
 
   log("dev environment is ready");
-  writeDevSignal("ready", "Dev environment is ready.");
+  clearBuildLongRunningTimer();
+  buildPhaseActive = false;
+  writeDevSignal("ready", "Dev environment is ready.", {
+    commandCategory: "build",
+    durationMs: Date.now() - buildPhaseStartedAt,
+  });
 }
 
 void main().catch((error) => {

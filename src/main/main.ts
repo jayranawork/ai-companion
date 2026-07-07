@@ -106,6 +106,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function isSafeFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function getClampedWindowPosition(window: BrowserWindow, nextX: number, nextY: number) {
   const bounds = window.getBounds();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -434,6 +438,20 @@ function startWindowRoam() {
       const maxX = workArea.x + workArea.width - (halfWidth + edgeMargin);
       const minY = workArea.y + topVisibleMargin;
       const maxY = workArea.y + workArea.height - (halfHeight + edgeMargin);
+      if (
+        !isSafeFiniteNumber(bounds.width) ||
+        !isSafeFiniteNumber(bounds.height) ||
+        !isSafeFiniteNumber(workArea.x) ||
+        !isSafeFiniteNumber(workArea.y) ||
+        !isSafeFiniteNumber(workArea.width) ||
+        !isSafeFiniteNumber(workArea.height)
+      ) {
+        console.warn("[roam] skipping tick because bounds or work area were invalid", {
+          bounds,
+          workArea,
+        });
+        return;
+      }
       const [currentX, currentY] = window.getPosition();
       const safeCurrentX = Number.isFinite(currentX) ? currentX : workArea.x;
       const safeCurrentY = Number.isFinite(currentY) ? currentY : workArea.y;
@@ -457,7 +475,25 @@ function startWindowRoam() {
       const targetY = Math.trunc(Number.isFinite(nextY) ? nextY : safeCurrentY);
 
       if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
-        window.setPosition(targetX, targetY);
+        try {
+          window.setPosition(targetX, targetY);
+        } catch (positionError) {
+          console.error("[roam] failed to set position", {
+            targetX,
+            targetY,
+            bounds,
+            workArea,
+            positionError,
+          });
+          stopWindowRoam();
+        }
+      } else {
+        console.warn("[roam] skipping invalid target position", {
+          targetX,
+          targetY,
+          bounds,
+          workArea,
+        });
       }
     } catch (error) {
       console.error("[roam] roaming tick failed", error);
